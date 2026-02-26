@@ -1,0 +1,20 @@
+{
+  "name": "axiom-study-engine",
+  "version": "1.0.0",
+  "description": "Deterministic study engine — spaced repetition, scheduling, and retention analysis",
+  "type": "module",
+  "main": "dist/domain/index.js",
+  "types": "dist/domain/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.3",
+    "vitest": "^3.0.5"
+  },
+  "license": "MIT"
+}

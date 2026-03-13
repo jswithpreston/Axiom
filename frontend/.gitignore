@@ -1,0 +1,18 @@
+# dependencies
+node_modules/
+
+# Next.js
+.next/
+out/
+
+# environment — NEVER commit these
+.env.local
+.env.*.local
+
+# drizzle generated output
+drizzle/
+
+# misc
+.DS_Store
+*.pem
+npm-debug.log*

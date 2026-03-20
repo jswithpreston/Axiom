@@ -23,3 +23,7 @@ export { generateStudyPlan } from "./scheduler.js";
 
 // ── Retention & Risk Engine ───────────────────────────────────────────────────
 export { calculateRetentionMetrics } from "./retention.js";
+
+// ── Note Parser ───────────────────────────────────────────────────────────────
+export { parseNotes } from "./noteParser.js";
+export type { ParsedCard } from "./noteParser.js";

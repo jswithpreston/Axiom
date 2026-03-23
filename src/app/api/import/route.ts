@@ -6,7 +6,7 @@
 export const dynamic = "force-dynamic";
 
 import { NextResponse } from "next/server";
-import { parseNotes } from "@/domain/noteParser.js";
+import { parseNotes } from "@/domain/noteParser";
 
 export async function POST(request: Request) {
   let formData: FormData;

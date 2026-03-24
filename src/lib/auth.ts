@@ -5,6 +5,7 @@ import { getDb, users } from "@/db";
 import { eq } from "drizzle-orm";
 
 export const authOptions: NextAuthOptions = {
+  secret: process.env.NEXTAUTH_SECRET,
   providers: [
     CredentialsProvider({
       name: "Credentials",
@@ -15,18 +16,23 @@ export const authOptions: NextAuthOptions = {
       async authorize(credentials) {
         if (!credentials?.email || !credentials?.password) return null;
 
-        const [user] = await getDb()
-          .select()
-          .from(users)
-          .where(eq(users.email, credentials.email.toLowerCase()))
-          .limit(1);
+        try {
+          const [user] = await getDb()
+            .select()
+            .from(users)
+            .where(eq(users.email, credentials.email.toLowerCase()))
+            .limit(1);
 
-        if (!user) return null;
+          if (!user) return null;
 
-        const valid = await bcrypt.compare(credentials.password, user.passwordHash);
-        if (!valid) return null;
+          const valid = await bcrypt.compare(credentials.password, user.passwordHash);
+          if (!valid) return null;
 
-        return { id: user.id, email: user.email, name: user.name ?? null };
+          return { id: user.id, email: user.email, name: user.name ?? null };
+        } catch (err) {
+          console.error("[auth] authorize error:", err);
+          return null;
+        }
       },
     }),
   ],

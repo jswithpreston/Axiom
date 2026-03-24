@@ -19,12 +19,7 @@ import {
 import { useQueryClient } from "@tanstack/react-query";
 import type { FlashcardWithMeta, CreateFlashcardInput } from "@/types/domain";
 
-// ---------------------------------------------------------------------------
-// Page
-// ---------------------------------------------------------------------------
-
 export default function FlashcardsPage() {
-  // ---- Data hooks ---------------------------------------------------------
   const { data: courses = [], isLoading: coursesLoading } = useCourses();
   const [filterCourseId, setFilterCourseId] = useState<string>("");
   const { data: flashcards = [], isLoading: flashcardsLoading } = useFlashcards(
@@ -36,20 +31,16 @@ export default function FlashcardsPage() {
   const updateFlashcard = useUpdateFlashcard();
   const deleteFlashcard = useDeleteFlashcard();
 
-  // ---- Manual create/edit modal state ------------------------------------
   const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
   const [editingFlashcard, setEditingFlashcard] = useState<
     FlashcardWithMeta | undefined
   >(undefined);
 
-  // ---- Import state -------------------------------------------------------
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [importing, setImporting] = useState(false);
   const [importError, setImportError] = useState<string | null>(null);
   const [generatedCards, setGeneratedCards] = useState<GeneratedCard[]>([]);
   const [isReviewOpen, setIsReviewOpen] = useState(false);
-
-  // ---- Drag-and-drop state ------------------------------------------------
   const [isDragOver, setIsDragOver] = useState(false);
 
   const courseOptions = useMemo(
@@ -57,7 +48,6 @@ export default function FlashcardsPage() {
     [courses]
   );
 
-  // ---- Manual flashcard handlers -----------------------------------------
   const handleOpenCreate = useCallback(() => {
     setEditingFlashcard(undefined);
     setIsModalOpen(true);
@@ -96,7 +86,6 @@ export default function FlashcardsPage() {
     [deleteFlashcard]
   );
 
-  // ---- Import handlers ----------------------------------------------------
   const processFile = useCallback(async (file: File) => {
     setImportError(null);
     setImporting(true);
@@ -168,7 +157,6 @@ export default function FlashcardsPage() {
     [queryClient]
   );
 
-  // ---- Render -------------------------------------------------------------
   const isLoading = coursesLoading || flashcardsLoading;
   const isMutating = createFlashcard.isPending || updateFlashcard.isPending;
 
@@ -176,8 +164,7 @@ export default function FlashcardsPage() {
     <>
       <TopBar title="Flashcards" subtitle="Manage study material" />
 
-      <div className="flex flex-1 flex-col gap-6 p-6">
-        {/* Filter + action bar */}
+      <div className="flex flex-1 flex-col gap-6 p-4 md:p-6">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <select
             value={filterCourseId}
@@ -207,7 +194,6 @@ export default function FlashcardsPage() {
           </div>
         </div>
 
-        {/* Hidden file input */}
         <input
           ref={fileInputRef}
           type="file"
@@ -216,7 +202,6 @@ export default function FlashcardsPage() {
           onChange={handleFileChange}
         />
 
-        {/* Import error banner */}
         {importError && (
           <div className="flex items-center justify-between rounded-md border border-red-500/30 bg-red-500/10 px-4 py-2.5">
             <p className="text-sm text-red-400">{importError}</p>
@@ -231,13 +216,11 @@ export default function FlashcardsPage() {
           </div>
         )}
 
-        {/* Content */}
         {isLoading ? (
           <div className="flex flex-1 items-center justify-center">
             <p className="text-sm text-axiom-muted">Loading flashcards…</p>
           </div>
         ) : flashcards.length === 0 ? (
-          /* Empty state — large drop zone */
           <div
             onDrop={handleDrop}
             onDragOver={handleDragOver}
@@ -279,7 +262,6 @@ export default function FlashcardsPage() {
           </div>
         ) : (
           <>
-            {/* Inline drop hint when cards already exist */}
             <div
               onDrop={handleDrop}
               onDragOver={handleDragOver}
@@ -301,7 +283,6 @@ export default function FlashcardsPage() {
         )}
       </div>
 
-      {/* Create / Edit Modal */}
       <Modal
         isOpen={isModalOpen}
         onClose={handleCloseModal}
@@ -317,7 +298,6 @@ export default function FlashcardsPage() {
         />
       </Modal>
 
-      {/* Import Review Modal */}
       <ImportReviewModal
         isOpen={isReviewOpen}
         onClose={() => {

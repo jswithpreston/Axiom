@@ -6,7 +6,8 @@ export const dynamic = "force-dynamic";
 
 import { NextResponse } from "next/server";
 import { getDb, courses, flashcards } from "@/db";
-import { eq } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
+import { getServerUserId } from "@/lib/getServerUserId";
 
 interface CardInput {
   question: string;
@@ -14,7 +15,11 @@ interface CardInput {
 }
 
 export async function POST(request: Request) {
-  const body = await request.json() as { courseId?: string; cards?: CardInput[] };
+  const auth = await getServerUserId();
+  if (auth.error) return auth.error;
+  const { userId } = auth;
+
+  const body = (await request.json()) as { courseId?: string; cards?: CardInput[] };
   const { courseId, cards } = body;
 
   if (
@@ -25,14 +30,14 @@ export async function POST(request: Request) {
   ) {
     return NextResponse.json(
       { message: "Missing required fields: courseId and a non-empty cards array" },
-      { status: 400 }
+      { status: 400 },
     );
   }
 
   const [courseRow] = await getDb()
     .select({ id: courses.id })
     .from(courses)
-    .where(eq(courses.id, courseId))
+    .where(and(eq(courses.id, courseId), eq(courses.userId, userId)))
     .limit(1);
 
   if (!courseRow) {
@@ -48,10 +53,11 @@ export async function POST(request: Request) {
         typeof c.question === "string" &&
         c.question.trim().length > 0 &&
         typeof c.answer === "string" &&
-        c.answer.trim().length > 0
+        c.answer.trim().length > 0,
     )
     .map((c) => ({
       id: crypto.randomUUID(),
+      userId,
       courseId: courseRow.id,
       question: c.question.trim(),
       answer: c.answer.trim(),
@@ -65,7 +71,7 @@ export async function POST(request: Request) {
   if (values.length === 0) {
     return NextResponse.json(
       { message: "All submitted cards had empty question or answer fields." },
-      { status: 400 }
+      { status: 400 },
     );
   }
 

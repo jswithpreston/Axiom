@@ -4,10 +4,6 @@ import { useState } from "react";
 import { TopBar } from "@/components/layout/TopBar";
 import Card from "@/components/ui/Card";
 
-// ---------------------------------------------------------------------------
-// Page
-// ---------------------------------------------------------------------------
-
 export default function SettingsPage() {
   const [dailyStudyHours, setDailyStudyHours] = useState<number>(8);
 
@@ -15,8 +11,7 @@ export default function SettingsPage() {
     <>
       <TopBar title="Settings" subtitle="System configuration" />
 
-      <div className="flex flex-col gap-6 p-6">
-        {/* Study Preferences */}
+      <div className="flex flex-col gap-6 p-4 md:p-6">
         <Card title="STUDY PREFERENCES">
           <div className="flex flex-col gap-4">
             <div className="flex flex-col gap-1.5">
@@ -47,7 +42,6 @@ export default function SettingsPage() {
           </div>
         </Card>
 
-        {/* System Info */}
         <Card title="SYSTEM">
           <div className="flex flex-col gap-3">
             <div className="flex items-center justify-between">

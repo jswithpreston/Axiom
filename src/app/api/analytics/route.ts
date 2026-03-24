@@ -7,6 +7,7 @@ export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
 import { getDb, courses, flashcards, reviewHistory } from "@/db";
 import { eq, inArray } from "drizzle-orm";
+import { getServerUserId } from "@/lib/getServerUserId";
 
 function buildStudyPlan(
   courseList: { id: string; name: string; examDate: Date; difficultyWeight: number }[],
@@ -39,16 +40,21 @@ function buildStudyPlan(
 }
 
 export async function GET(request: Request) {
+  const auth = await getServerUserId();
+  if (auth.error) return auth.error;
+  const { userId } = auth;
+
   const { searchParams } = new URL(request.url);
   const courseId = searchParams.get("courseId");
   const now = new Date();
 
-  // Fetch courses (filtered or all)
   const courseList = courseId
-    ? await getDb().select().from(courses).where(eq(courses.id, courseId))
-    : await getDb().select().from(courses);
+    ? await getDb()
+        .select()
+        .from(courses)
+        .where(eq(courses.id, courseId))
+    : await getDb().select().from(courses).where(eq(courses.userId, userId));
 
-  // Fetch flashcards for those courses
   const courseIds = courseList.map((c) => c.id);
   const cardList =
     courseIds.length > 0
@@ -58,7 +64,6 @@ export async function GET(request: Request) {
           .where(inArray(flashcards.courseId, courseIds))
       : [];
 
-  // Fetch all review history for those flashcards
   const cardIds = cardList.map((f) => f.id);
   const historyList =
     cardIds.length > 0
@@ -68,7 +73,6 @@ export async function GET(request: Request) {
           .where(inArray(reviewHistory.flashcardId, cardIds))
       : [];
 
-  // ---- Build daily buckets for last 30 days ----
   const dayBuckets = new Map<string, { total: number; correct: number; qualitySum: number }>();
 
   for (let i = 29; i >= 0; i--) {
@@ -88,7 +92,6 @@ export async function GET(request: Request) {
     }
   }
 
-  // ---- Retention Trend ----
   const retentionTrend = Array.from(dayBuckets.entries()).map(([date, bucket]) => {
     let score: number | null = null;
     if (bucket.total > 0) {
@@ -99,7 +102,6 @@ export async function GET(request: Request) {
     return { date, score };
   });
 
-  // ---- Accuracy Trend ----
   const accuracyTrend = Array.from(dayBuckets.entries()).map(([date, bucket]) => {
     const accuracy =
       bucket.total > 0
@@ -108,7 +110,6 @@ export async function GET(request: Request) {
     return { date, accuracy };
   });
 
-  // ---- Study Hours Distribution ----
   const plan = buildStudyPlan(courseList, 8);
   const studyHoursDistribution = plan.allocations.map((a) => ({
     courseId: a.courseId,

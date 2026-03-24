@@ -13,7 +13,7 @@ import { formatPercentage, formatHours } from "@/utils/formatters";
 function LoadingSkeleton() {
   return (
     <div className="animate-pulse space-y-6 p-6">
-      <div className="grid grid-cols-4 gap-6">
+      <div className="grid grid-cols-2 gap-4 md:grid-cols-4 md:gap-6">
         {Array.from({ length: 4 }).map((_, i) => (
           <div
             key={i}
@@ -21,12 +21,12 @@ function LoadingSkeleton() {
           />
         ))}
       </div>
-      <div className="grid grid-cols-2 gap-6">
-        <div className="space-y-6">
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 md:gap-6">
+        <div className="space-y-4">
           <div className="h-64 rounded-lg border border-axiom-border bg-axiom-surface" />
           <div className="h-48 rounded-lg border border-axiom-border bg-axiom-surface" />
         </div>
-        <div className="space-y-6">
+        <div className="space-y-4">
           <div className="h-40 rounded-lg border border-axiom-border bg-axiom-surface" />
           <div className="h-48 rounded-lg border border-axiom-border bg-axiom-surface" />
           <div className="h-40 rounded-lg border border-axiom-border bg-axiom-surface" />
@@ -82,9 +82,9 @@ export default function DashboardPage() {
     <>
       <TopBar title="Dashboard" subtitle="Academic preparation status" />
 
-      <div className="space-y-6 p-6">
+      <div className="space-y-6 p-4 md:p-6">
         {/* Metrics row */}
-        <div className="grid grid-cols-4 gap-6">
+        <div className="grid grid-cols-2 gap-4 md:grid-cols-4 md:gap-6">
           <MetricTile
             label="Total Study Hours"
             value={formatHours(data.studyPlan.totalHours)}
@@ -110,15 +110,15 @@ export default function DashboardPage() {
         </div>
 
         {/* Two-column grid */}
-        <div className="grid grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 md:gap-6">
           {/* Left column */}
-          <div className="space-y-6">
+          <div className="space-y-4 md:space-y-6">
             <DailyPlan studyPlan={data.studyPlan} />
             <WeakestTopics topics={data.weakestTopics} />
           </div>
 
           {/* Right column */}
-          <div className="space-y-6">
+          <div className="space-y-4 md:space-y-6">
             <RetentionOverview
               avgRetention={data.retentionOverview.avgRetention}
               avgAccuracy={data.retentionOverview.avgAccuracy}

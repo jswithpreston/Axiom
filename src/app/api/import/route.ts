@@ -6,9 +6,13 @@
 export const dynamic = "force-dynamic";
 
 import { NextResponse } from "next/server";
+import { getServerUserId } from "@/lib/getServerUserId";
 import { parseNotes } from "@/domain/noteParser";
 
 export async function POST(request: Request) {
+  const auth = await getServerUserId();
+  if (auth.error) return auth.error;
+
   let formData: FormData;
   try {
     formData = await request.formData();

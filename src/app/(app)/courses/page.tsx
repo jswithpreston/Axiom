@@ -42,12 +42,16 @@ export default function CoursesPage() {
 
   const handleSubmit = useCallback(
     async (data: CreateCourseInput) => {
-      if (editingCourse) {
-        await updateMutation.mutateAsync({ id: editingCourse.id, input: data });
-      } else {
-        await createMutation.mutateAsync(data);
+      try {
+        if (editingCourse) {
+          await updateMutation.mutateAsync({ id: editingCourse.id, input: data });
+        } else {
+          await createMutation.mutateAsync(data);
+        }
+        closeModal();
+      } catch {
+        // error displayed via mutation.error below
       }
-      closeModal();
     },
     [editingCourse, updateMutation, createMutation, closeModal]
   );
@@ -71,7 +75,7 @@ export default function CoursesPage() {
     <>
       <TopBar title="Courses" subtitle="Manage academic courses" />
 
-      <div className="p-6">
+      <div className="p-4 md:p-6">
         {/* Toolbar */}
         <div className="mb-6 flex items-center justify-end">
           <Button variant="primary" onClick={openCreateModal}>
@@ -111,6 +115,11 @@ export default function CoursesPage() {
         onClose={closeModal}
         title={editingCourse ? "Edit Course" : "Create Course"}
       >
+        {(createMutation.error ?? updateMutation.error) && (
+          <p className="mb-4 rounded-md border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-400">
+            {(createMutation.error ?? updateMutation.error)?.message ?? "Something went wrong."}
+          </p>
+        )}
         <CourseForm
           key={editingCourse?.id ?? "create"}
           course={editingCourse ?? undefined}

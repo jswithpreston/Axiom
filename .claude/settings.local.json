@@ -20,7 +20,11 @@
       "Bash(cd /c/Users/Preston/Documents/Axiom/frontend && npx vercel --version 2>&1)",
       "Bash(npm uninstall:*)",
       "Bash(git rm:*)",
-      "Bash(git mv:*)"
+      "Bash(git mv:*)",
+      "Bash(node:*)",
+      "Bash(\"/c/Users/Preston/Documents/Axiom/.env.local\")",
+      "Bash(printf '\\\\nNEXTAUTH_URL=http://localhost:3000\\\\nNEXTAUTH_SECRET=8d87G/F9SGvk9rfPmN333XUcGbsSR+XZsXk0MvfdW8Y=\\\\n')",
+      "Bash(npx drizzle-kit:*)"
     ]
   }
 }

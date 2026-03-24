@@ -2,9 +2,11 @@
 // Axiom — Database Seed Script
 // Run once after db:push to populate initial data.
 // Usage: npm run db:seed
+// NOTE: Creates a seed user — change the password before using in production.
 // =============================================================================
 
-import { getDb, courses, flashcards, reviewHistory } from "./index";
+import bcrypt from "bcryptjs";
+import { getDb, users, courses, flashcards, reviewHistory } from "./index";
 
 function addDays(date: Date, days: number): Date {
   const d = new Date(date);
@@ -21,6 +23,25 @@ async function seed() {
   await getDb().delete(reviewHistory);
   await getDb().delete(flashcards);
   await getDb().delete(courses);
+  await getDb().delete(users);
+
+  // ── Seed User ─────────────────────────────────────────────────────────
+  const seedUserId = crypto.randomUUID();
+  const passwordHash = await bcrypt.hash("axiom-seed-2024", 12);
+
+  const [seedUser] = await getDb()
+    .insert(users)
+    .values({
+      id: seedUserId,
+      email: "seed@axiom.app",
+      name: "Seed User",
+      passwordHash,
+    })
+    .returning();
+
+  if (!seedUser) throw new Error("User insert failed");
+
+  const userId = seedUser.id;
 
   // ── Courses ──────────────────────────────────────────────────────────
   const [c1, c2, c3] = await getDb()
@@ -28,6 +49,7 @@ async function seed() {
     .values([
       {
         id: crypto.randomUUID(),
+        userId,
         name: "Linear Algebra",
         examDate: addDays(now, 30),
         difficultyWeight: 4,
@@ -35,6 +57,7 @@ async function seed() {
       },
       {
         id: crypto.randomUUID(),
+        userId,
         name: "Organic Chemistry",
         examDate: addDays(now, 12),
         difficultyWeight: 5,
@@ -42,6 +65,7 @@ async function seed() {
       },
       {
         id: crypto.randomUUID(),
+        userId,
         name: "Data Structures",
         examDate: addDays(now, 45),
         difficultyWeight: 3,
@@ -57,6 +81,7 @@ async function seed() {
     // Linear Algebra
     {
       id: crypto.randomUUID(),
+      userId,
       courseId: c1.id,
       question: "What is the determinant of a 2x2 matrix [[a,b],[c,d]]?",
       answer: "ad − bc",
@@ -68,6 +93,7 @@ async function seed() {
     },
     {
       id: crypto.randomUUID(),
+      userId,
       courseId: c1.id,
       question: "Define eigenvalue.",
       answer: "A scalar λ such that Av = λv for some nonzero vector v.",
@@ -79,6 +105,7 @@ async function seed() {
     },
     {
       id: crypto.randomUUID(),
+      userId,
       courseId: c1.id,
       question: "What does it mean for vectors to be linearly independent?",
       answer: "No vector can be written as a linear combination of the others.",
@@ -91,6 +118,7 @@ async function seed() {
     // Organic Chemistry
     {
       id: crypto.randomUUID(),
+      userId,
       courseId: c2.id,
       question: "What is Markovnikov's rule?",
       answer: "In HX addition to an alkene, H adds to the carbon with more H atoms.",
@@ -102,6 +130,7 @@ async function seed() {
     },
     {
       id: crypto.randomUUID(),
+      userId,
       courseId: c2.id,
       question: "What is an SN2 reaction?",
       answer: "One-step nucleophilic substitution with backside attack and inversion of configuration.",
@@ -113,6 +142,7 @@ async function seed() {
     },
     {
       id: crypto.randomUUID(),
+      userId,
       courseId: c2.id,
       question: "What functional group does an aldehyde contain?",
       answer: "A terminal carbonyl group (−CHO).",
@@ -125,6 +155,7 @@ async function seed() {
     // Data Structures
     {
       id: crypto.randomUUID(),
+      userId,
       courseId: c3.id,
       question: "What is the time complexity of searching in a balanced BST?",
       answer: "O(log n)",
@@ -136,6 +167,7 @@ async function seed() {
     },
     {
       id: crypto.randomUUID(),
+      userId,
       courseId: c3.id,
       question: "What is the difference between a stack and a queue?",
       answer: "Stack is LIFO (last in, first out); queue is FIFO (first in, first out).",
@@ -174,7 +206,7 @@ async function seed() {
   await getDb().insert(reviewHistory).values(historyValues);
 
   console.log(
-    `Seeded: ${insertedCards.length} flashcards, ${historyValues.length} review records across 3 courses.`
+    `Seeded: user (${seedUser.email}), ${insertedCards.length} flashcards, ${historyValues.length} review records across 3 courses.`,
   );
 }
 

@@ -5,8 +5,21 @@
 
 import { pgTable, text, real, integer, timestamp } from "drizzle-orm/pg-core";
 
+export const users = pgTable("users", {
+  id: text("id").primaryKey(),
+  name: text("name"),
+  email: text("email").notNull().unique(),
+  passwordHash: text("password_hash").notNull(),
+  createdAt: timestamp("created_at", { mode: "date", withTimezone: true })
+    .notNull()
+    .defaultNow(),
+});
+
 export const courses = pgTable("courses", {
   id: text("id").primaryKey(),
+  userId: text("user_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
   name: text("name").notNull(),
   examDate: timestamp("exam_date", { mode: "date", withTimezone: true }).notNull(),
   difficultyWeight: integer("difficulty_weight").notNull(),
@@ -17,6 +30,9 @@ export const courses = pgTable("courses", {
 
 export const flashcards = pgTable("flashcards", {
   id: text("id").primaryKey(),
+  userId: text("user_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
   courseId: text("course_id")
     .notNull()
     .references(() => courses.id, { onDelete: "cascade" }),
@@ -42,6 +58,8 @@ export const reviewHistory = pgTable("review_history", {
 });
 
 // Inferred types for use across the app
+export type User = typeof users.$inferSelect;
+export type NewUser = typeof users.$inferInsert;
 export type Course = typeof courses.$inferSelect;
 export type NewCourse = typeof courses.$inferInsert;
 export type Flashcard = typeof flashcards.$inferSelect;

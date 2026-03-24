@@ -5,10 +5,6 @@ import { TopBar } from "@/components/layout/TopBar";
 import ReviewSession from "@/features/reviews/ReviewSession";
 import { useCourses } from "@/hooks/useCourses";
 
-// ---------------------------------------------------------------------------
-// Page
-// ---------------------------------------------------------------------------
-
 export default function ReviewsPage() {
   const { data: courses = [] } = useCourses();
   const [filterCourseId, setFilterCourseId] = useState<string>("");
@@ -17,8 +13,7 @@ export default function ReviewsPage() {
     <>
       <TopBar title="Review Session" subtitle="Spaced repetition review" />
 
-      <div className="flex flex-1 flex-col p-6">
-        {/* Optional course filter */}
+      <div className="flex flex-1 flex-col p-4 md:p-6">
         <div className="mb-6 flex items-center">
           <select
             value={filterCourseId}
@@ -34,12 +29,9 @@ export default function ReviewsPage() {
           </select>
         </div>
 
-        {/* Review session — centered */}
         <div className="flex flex-1 justify-center">
           <div className="w-full max-w-2xl">
-            <ReviewSession
-              courseId={filterCourseId || undefined}
-            />
+            <ReviewSession courseId={filterCourseId || undefined} />
           </div>
         </div>
       </div>

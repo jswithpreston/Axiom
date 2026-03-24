@@ -6,11 +6,9 @@ export const dynamic = "force-dynamic";
 
 import { NextResponse } from "next/server";
 import { getDb, courses, flashcards, reviewHistory } from "@/db";
+import { eq, inArray } from "drizzle-orm";
 import type { Course, Flashcard, ReviewHistoryRow } from "@/db";
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
+import { getServerUserId } from "@/lib/getServerUserId";
 
 function buildStudyPlan(
   courseList: { id: string; name: string; examDate: Date; difficultyWeight: number }[],
@@ -56,21 +54,42 @@ function computeRiskLevel(
   return "LOW";
 }
 
-// ---------------------------------------------------------------------------
-// Route handler
-// ---------------------------------------------------------------------------
-
 export async function GET() {
+  const auth = await getServerUserId();
+  if (auth.error) return auth.error;
+  const { userId } = auth;
+
   const now = new Date();
 
-  // Fetch all data in parallel
-  const [courseList, cardList, historyList] = await Promise.all([
-    getDb().select().from(courses),
-    getDb().select().from(flashcards),
-    getDb().select().from(reviewHistory),
+  const courseList = await getDb()
+    .select()
+    .from(courses)
+    .where(eq(courses.userId, userId));
+
+  const courseIds = courseList.map((c) => c.id);
+
+  const [cardList, historyList] = await Promise.all([
+    courseIds.length > 0
+      ? getDb().select().from(flashcards).where(inArray(flashcards.courseId, courseIds))
+      : Promise.resolve([] as Flashcard[]),
+    courseIds.length > 0
+      ? (async () => {
+          const cardIds = (
+            await getDb()
+              .select({ id: flashcards.id })
+              .from(flashcards)
+              .where(inArray(flashcards.courseId, courseIds))
+          ).map((f) => f.id);
+          return cardIds.length > 0
+            ? getDb()
+                .select()
+                .from(reviewHistory)
+                .where(inArray(reviewHistory.flashcardId, cardIds))
+            : ([] as ReviewHistoryRow[]);
+        })()
+      : Promise.resolve([] as ReviewHistoryRow[]),
   ]);
 
-  // Index cards by courseId and history by flashcardId for O(1) lookups
   const cardsByCourse = new Map<string, Flashcard[]>();
   for (const card of cardList) {
     const arr = cardsByCourse.get(card.courseId) ?? [];
@@ -85,10 +104,8 @@ export async function GET() {
     historyByCard.set(row.flashcardId, arr);
   }
 
-  // ---- Study Plan ----
   const studyPlan = buildStudyPlan(courseList, 8);
 
-  // ---- Per-course metrics ----
   interface CourseMetrics {
     course: Course;
     daysRemaining: number;
@@ -137,14 +154,12 @@ export async function GET() {
     };
   });
 
-  // ---- Retention Overview ----
   const withData = courseMetrics.filter((m) => m.totalReviews > 0);
   const retentionOverview = {
     avgRetention:
       withData.length > 0
         ? Math.round(
-            (withData.reduce((s, m) => s + m.retentionScore, 0) / withData.length) *
-              1000,
+            (withData.reduce((s, m) => s + m.retentionScore, 0) / withData.length) * 1000,
           ) / 1000
         : 0,
     avgAccuracy:
@@ -155,7 +170,6 @@ export async function GET() {
         : 0,
   };
 
-  // ---- Exam Countdowns ----
   const examCountdowns = courseMetrics
     .map((m) => ({
       courseId: m.course.id,
@@ -165,7 +179,6 @@ export async function GET() {
     }))
     .sort((a, b) => a.daysRemaining - b.daysRemaining);
 
-  // ---- Weakest Topics ----
   const courseNameById = new Map<string, string>(courseList.map((c) => [c.id, c.name]));
   const weakestTopics = [...cardList]
     .sort((a, b) => a.easeFactor - b.easeFactor)
@@ -177,7 +190,6 @@ export async function GET() {
       courseName: courseNameById.get(f.courseId) ?? "Unknown",
     }));
 
-  // ---- Risk Summary ----
   const riskSummary = courseMetrics.map((m) => ({
     courseId: m.course.id,
     courseName: m.course.name,

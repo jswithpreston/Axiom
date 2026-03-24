@@ -8,11 +8,8 @@ export const dynamic = "force-dynamic";
 
 import { NextResponse } from "next/server";
 import { getDb, courses, flashcards, reviewHistory } from "@/db";
-import { eq, inArray } from "drizzle-orm";
-
-// ---------------------------------------------------------------------------
-// Risk level helper
-// ---------------------------------------------------------------------------
+import { eq, inArray, and } from "drizzle-orm";
+import { getServerUserId } from "@/lib/getServerUserId";
 
 function computeRiskLevel(
   totalReviews: number,
@@ -27,10 +24,6 @@ function computeRiskLevel(
   if (daysRemaining <= 21 && accuracy < 0.7) return "MEDIUM";
   return "LOW";
 }
-
-// ---------------------------------------------------------------------------
-// Shared helper: enrich a course row with daysRemaining + riskLevel
-// ---------------------------------------------------------------------------
 
 async function enrichCourse(course: {
   id: string;
@@ -47,7 +40,6 @@ async function enrichCourse(course: {
     ),
   );
 
-  // Fetch flashcard IDs for this course
   const cardRows = await getDb()
     .select({ id: flashcards.id })
     .from(flashcards)
@@ -79,23 +71,19 @@ async function enrichCourse(course: {
   };
 }
 
-// ---------------------------------------------------------------------------
-// Route context type
-// ---------------------------------------------------------------------------
-
 type RouteContext = { params: Promise<{ id: string }> };
 
-// ---------------------------------------------------------------------------
-// GET /api/courses/[id]
-// ---------------------------------------------------------------------------
-
 export async function GET(_request: Request, context: RouteContext) {
+  const auth = await getServerUserId();
+  if (auth.error) return auth.error;
+  const { userId } = auth;
+
   const { id } = await context.params;
 
   const [course] = await getDb()
     .select()
     .from(courses)
-    .where(eq(courses.id, id))
+    .where(and(eq(courses.id, id), eq(courses.userId, userId)))
     .limit(1);
 
   if (!course) {
@@ -105,17 +93,17 @@ export async function GET(_request: Request, context: RouteContext) {
   return NextResponse.json(await enrichCourse(course));
 }
 
-// ---------------------------------------------------------------------------
-// PUT /api/courses/[id]
-// ---------------------------------------------------------------------------
-
 export async function PUT(request: Request, context: RouteContext) {
+  const auth = await getServerUserId();
+  if (auth.error) return auth.error;
+  const { userId } = auth;
+
   const { id } = await context.params;
 
   const [existing] = await getDb()
     .select()
     .from(courses)
-    .where(eq(courses.id, id))
+    .where(and(eq(courses.id, id), eq(courses.userId, userId)))
     .limit(1);
 
   if (!existing) {
@@ -163,14 +151,13 @@ export async function PUT(request: Request, context: RouteContext) {
   }
 
   if (Object.keys(updates).length === 0) {
-    // Nothing to update — return current state
     return NextResponse.json(await enrichCourse(existing));
   }
 
   const [updated] = await getDb()
     .update(courses)
     .set(updates)
-    .where(eq(courses.id, id))
+    .where(and(eq(courses.id, id), eq(courses.userId, userId)))
     .returning();
 
   if (!updated) {
@@ -183,25 +170,26 @@ export async function PUT(request: Request, context: RouteContext) {
   return NextResponse.json(await enrichCourse(updated));
 }
 
-// ---------------------------------------------------------------------------
-// DELETE /api/courses/[id]
-// ---------------------------------------------------------------------------
-
 export async function DELETE(_request: Request, context: RouteContext) {
+  const auth = await getServerUserId();
+  if (auth.error) return auth.error;
+  const { userId } = auth;
+
   const { id } = await context.params;
 
   const [existing] = await getDb()
     .select({ id: courses.id })
     .from(courses)
-    .where(eq(courses.id, id))
+    .where(and(eq(courses.id, id), eq(courses.userId, userId)))
     .limit(1);
 
   if (!existing) {
     return NextResponse.json({ message: "Course not found" }, { status: 404 });
   }
 
-  // CASCADE on the FK handles flashcards and review_history automatically
-  await getDb().delete(courses).where(eq(courses.id, id));
+  await getDb()
+    .delete(courses)
+    .where(and(eq(courses.id, id), eq(courses.userId, userId)));
 
   return new NextResponse(null, { status: 204 });
 }

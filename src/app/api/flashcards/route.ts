@@ -7,29 +7,30 @@ export const dynamic = "force-dynamic";
 
 import { NextResponse } from "next/server";
 import { getDb, courses, flashcards } from "@/db";
-import { eq, inArray } from "drizzle-orm";
-
-// ---------------------------------------------------------------------------
-// GET /api/flashcards
-// ---------------------------------------------------------------------------
+import { eq, inArray, and } from "drizzle-orm";
+import { getServerUserId } from "@/lib/getServerUserId";
 
 export async function GET(request: Request) {
+  const auth = await getServerUserId();
+  if (auth.error) return auth.error;
+  const { userId } = auth;
+
   const { searchParams } = new URL(request.url);
   const courseId = searchParams.get("courseId");
 
-  // Fetch flashcards, optionally filtered by courseId
-  const cardRows = courseId
-    ? await getDb()
-        .select()
-        .from(flashcards)
-        .where(eq(flashcards.courseId, courseId))
-    : await getDb().select().from(flashcards);
+  const cardRows = await getDb()
+    .select()
+    .from(flashcards)
+    .where(
+      courseId
+        ? and(eq(flashcards.userId, userId), eq(flashcards.courseId, courseId))
+        : eq(flashcards.userId, userId),
+    );
 
   if (cardRows.length === 0) {
     return NextResponse.json([]);
   }
 
-  // Collect unique courseIds to batch-fetch course names
   const uniqueCourseIds = [...new Set(cardRows.map((f) => f.courseId))];
 
   const courseRows = await getDb()
@@ -37,7 +38,6 @@ export async function GET(request: Request) {
     .from(courses)
     .where(inArray(courses.id, uniqueCourseIds));
 
-  // Build courseId -> name lookup
   const courseNameById = new Map<string, string>();
   for (const c of courseRows) {
     courseNameById.set(c.id, c.name);
@@ -60,11 +60,11 @@ export async function GET(request: Request) {
   return NextResponse.json(result);
 }
 
-// ---------------------------------------------------------------------------
-// POST /api/flashcards
-// ---------------------------------------------------------------------------
-
 export async function POST(request: Request) {
+  const auth = await getServerUserId();
+  if (auth.error) return auth.error;
+  const { userId } = auth;
+
   const body = await request.json();
   const { courseId, question, answer } = body as {
     courseId?: string;
@@ -88,11 +88,10 @@ export async function POST(request: Request) {
     );
   }
 
-  // Verify the course exists
   const [courseRow] = await getDb()
     .select({ id: courses.id, name: courses.name })
     .from(courses)
-    .where(eq(courses.id, courseId))
+    .where(and(eq(courses.id, courseId), eq(courses.userId, userId)))
     .limit(1);
 
   if (!courseRow) {
@@ -106,6 +105,7 @@ export async function POST(request: Request) {
     .insert(flashcards)
     .values({
       id: newId,
+      userId,
       courseId: courseRow.id,
       question: question.trim(),
       answer: answer.trim(),

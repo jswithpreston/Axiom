@@ -7,11 +7,8 @@ export const dynamic = "force-dynamic";
 
 import { NextResponse } from "next/server";
 import { getDb, courses, flashcards, reviewHistory } from "@/db";
-import { eq, inArray } from "drizzle-orm";
-
-// ---------------------------------------------------------------------------
-// Risk level helper
-// ---------------------------------------------------------------------------
+import { eq, inArray, and } from "drizzle-orm";
+import { getServerUserId } from "@/lib/getServerUserId";
 
 function computeRiskLevel(
   totalReviews: number,
@@ -27,15 +24,17 @@ function computeRiskLevel(
   return "LOW";
 }
 
-// ---------------------------------------------------------------------------
-// GET /api/courses
-// ---------------------------------------------------------------------------
-
 export async function GET() {
+  const auth = await getServerUserId();
+  if (auth.error) return auth.error;
+  const { userId } = auth;
+
   const now = new Date();
 
-  // 1. Fetch all courses
-  const allCourses = await getDb().select().from(courses);
+  const allCourses = await getDb()
+    .select()
+    .from(courses)
+    .where(eq(courses.userId, userId));
 
   if (allCourses.length === 0) {
     return NextResponse.json([]);
@@ -43,13 +42,11 @@ export async function GET() {
 
   const courseIds = allCourses.map((c) => c.id);
 
-  // 2. Batch-fetch all flashcards for these courses
   const allFlashcards = await getDb()
     .select()
     .from(flashcards)
     .where(inArray(flashcards.courseId, courseIds));
 
-  // 3. Batch-fetch all review history for those flashcards
   const flashcardIds = allFlashcards.map((f) => f.id);
 
   const allReviews =
@@ -60,7 +57,6 @@ export async function GET() {
           .where(inArray(reviewHistory.flashcardId, flashcardIds))
       : [];
 
-  // 4. Group flashcard IDs by courseId in memory
   const flashcardsByCourse = new Map<string, string[]>();
   for (const f of allFlashcards) {
     const existing = flashcardsByCourse.get(f.courseId) ?? [];
@@ -68,7 +64,6 @@ export async function GET() {
     flashcardsByCourse.set(f.courseId, existing);
   }
 
-  // 5. Group reviews by flashcardId in memory
   const reviewsByFlashcard = new Map<
     string,
     { quality: number; reviewedAt: Date }[]
@@ -79,7 +74,6 @@ export async function GET() {
     reviewsByFlashcard.set(r.flashcardId, existing);
   }
 
-  // 6. Build enriched response for each course
   const result = allCourses.map((c) => {
     const daysRemaining = Math.max(
       0,
@@ -126,11 +120,11 @@ export async function GET() {
   return NextResponse.json(result);
 }
 
-// ---------------------------------------------------------------------------
-// POST /api/courses
-// ---------------------------------------------------------------------------
-
 export async function POST(request: Request) {
+  const auth = await getServerUserId();
+  if (auth.error) return auth.error;
+  const { userId } = auth;
+
   const body = await request.json();
   const { name, examDate, difficultyWeight } = body as {
     name?: string;
@@ -138,7 +132,6 @@ export async function POST(request: Request) {
     difficultyWeight?: number;
   };
 
-  // Validate required fields
   if (!name || typeof name !== "string" || name.trim() === "") {
     return NextResponse.json(
       { message: "name is required and must be a non-empty string" },
@@ -187,6 +180,7 @@ export async function POST(request: Request) {
     .insert(courses)
     .values({
       id: newId,
+      userId,
       name: name.trim(),
       examDate: parsedExamDate,
       difficultyWeight,

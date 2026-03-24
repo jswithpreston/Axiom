@@ -6,9 +6,9 @@ export const dynamic = "force-dynamic";
 
 import { NextResponse } from "next/server";
 import { getDb, flashcards, reviewHistory } from "@/db";
-import { eq } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
+import { getServerUserId } from "@/lib/getServerUserId";
 
-// SM-2 helpers
 function computeNewEaseFactor(ef: number, quality: number): number {
   const delta = 5 - quality;
   return Math.max(1.3, ef + (0.1 - delta * (0.08 + delta * 0.02)));
@@ -27,6 +27,10 @@ function addDays(date: Date, days: number): Date {
 }
 
 export async function POST(request: Request) {
+  const auth = await getServerUserId();
+  if (auth.error) return auth.error;
+  const { userId } = auth;
+
   const body = await request.json();
   const { flashcardId, quality } = body;
 
@@ -52,7 +56,7 @@ export async function POST(request: Request) {
   const [card] = await getDb()
     .select()
     .from(flashcards)
-    .where(eq(flashcards.id, flashcardId))
+    .where(and(eq(flashcards.id, flashcardId), eq(flashcards.userId, userId)))
     .limit(1);
 
   if (!card) {
@@ -65,7 +69,6 @@ export async function POST(request: Request) {
   let { repetition, interval, easeFactor } = card;
 
   if (q < 3) {
-    // Failed review: reset
     repetition = 0;
     interval = 1;
   } else {
@@ -78,14 +81,8 @@ export async function POST(request: Request) {
 
   const [updated] = await getDb()
     .update(flashcards)
-    .set({
-      repetition,
-      interval,
-      easeFactor,
-      nextReviewDate,
-      lastReviewedAt: now,
-    })
-    .where(eq(flashcards.id, flashcardId))
+    .set({ repetition, interval, easeFactor, nextReviewDate, lastReviewedAt: now })
+    .where(and(eq(flashcards.id, flashcardId), eq(flashcards.userId, userId)))
     .returning();
 
   await getDb().insert(reviewHistory).values({

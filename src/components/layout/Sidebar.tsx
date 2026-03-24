@@ -2,11 +2,17 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useSession, signOut } from "next-auth/react";
 
 interface NavItem {
   readonly label: string;
   readonly href: string;
   readonly icon: React.ReactNode;
+}
+
+interface SidebarProps {
+  readonly isOpen?: boolean;
+  readonly onClose?: () => void;
 }
 
 function DashboardIcon() {
@@ -66,6 +72,16 @@ function SettingsIcon() {
   );
 }
 
+function SignOutIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+      <polyline points="16 17 21 12 16 7" />
+      <line x1="21" y1="12" x2="9" y2="12" />
+    </svg>
+  );
+}
+
 const mainNavItems: NavItem[] = [
   { label: "Dashboard", href: "/dashboard", icon: <DashboardIcon /> },
   { label: "Courses", href: "/courses", icon: <CoursesIcon /> },
@@ -78,15 +94,33 @@ const bottomNavItems: NavItem[] = [
   { label: "Settings", href: "/settings", icon: <SettingsIcon /> },
 ];
 
-export function Sidebar() {
+export function Sidebar({ isOpen = false, onClose }: SidebarProps) {
   const pathname = usePathname();
+  const { data: session } = useSession();
 
   function isActive(href: string): boolean {
     return pathname === href || pathname.startsWith(`${href}/`);
   }
 
   return (
-    <aside className="fixed left-0 top-0 z-40 flex h-screen w-56 flex-col border-r border-axiom-border bg-axiom-surface">
+    <aside
+      className={`fixed left-0 top-0 z-40 flex h-screen w-56 flex-col border-r border-axiom-border bg-axiom-surface transition-transform duration-200 ease-in-out -translate-x-full md:translate-x-0 ${
+        isOpen ? "translate-x-0" : ""
+      }`}
+    >
+      {/* Close button — mobile only */}
+      <button
+        type="button"
+        onClick={onClose}
+        className="absolute right-3 top-3 rounded p-1 text-axiom-muted transition-colors hover:text-axiom-text md:hidden"
+        aria-label="Close navigation"
+      >
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <line x1="18" y1="6" x2="6" y2="18" />
+          <line x1="6" y1="6" x2="18" y2="18" />
+        </svg>
+      </button>
+
       {/* Logo */}
       <div className="px-4 pb-6 pt-6">
         <div className="font-mono text-lg font-bold tracking-[0.3em] text-axiom-text">
@@ -103,6 +137,7 @@ export function Sidebar() {
           <Link
             key={item.href}
             href={item.href}
+            onClick={onClose}
             className={`flex items-center gap-3 px-4 py-2.5 text-sm transition-colors ${
               isActive(item.href)
                 ? "border-r-2 border-axiom-accent bg-axiom-accent/10 text-axiom-accent"
@@ -115,12 +150,13 @@ export function Sidebar() {
         ))}
       </nav>
 
-      {/* Bottom navigation */}
-      <nav className="px-2 pb-4">
+      {/* Bottom navigation + sign out */}
+      <div className="px-2 pb-4">
         {bottomNavItems.map((item) => (
           <Link
             key={item.href}
             href={item.href}
+            onClick={onClose}
             className={`flex items-center gap-3 px-4 py-2.5 text-sm transition-colors ${
               isActive(item.href)
                 ? "border-r-2 border-axiom-accent bg-axiom-accent/10 text-axiom-accent"
@@ -131,7 +167,23 @@ export function Sidebar() {
             {item.label}
           </Link>
         ))}
-      </nav>
+
+        <div className="mt-2 border-t border-axiom-border px-2 pt-3">
+          {session?.user?.email && (
+            <p className="mb-2 truncate text-[11px] text-axiom-muted">
+              {session.user.email}
+            </p>
+          )}
+          <button
+            type="button"
+            onClick={() => signOut({ callbackUrl: "/login" })}
+            className="flex w-full items-center gap-3 rounded px-2 py-2 text-sm text-axiom-muted transition-colors hover:text-axiom-text"
+          >
+            <SignOutIcon />
+            Sign Out
+          </button>
+        </div>
+      </div>
     </aside>
   );
 }

@@ -8,13 +8,10 @@ export const dynamic = "force-dynamic";
 
 import { NextResponse } from "next/server";
 import { getDb, courses, flashcards } from "@/db";
-import { eq } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
+import { getServerUserId } from "@/lib/getServerUserId";
 
 type RouteContext = { params: Promise<{ id: string }> };
-
-// ---------------------------------------------------------------------------
-// Shared serializer
-// ---------------------------------------------------------------------------
 
 function serializeCard(
   f: {
@@ -46,24 +43,21 @@ function serializeCard(
   };
 }
 
-// ---------------------------------------------------------------------------
-// GET /api/flashcards/[id]
-// ---------------------------------------------------------------------------
-
 export async function GET(_request: Request, context: RouteContext) {
+  const auth = await getServerUserId();
+  if (auth.error) return auth.error;
+  const { userId } = auth;
+
   const { id } = await context.params;
 
   const [card] = await getDb()
     .select()
     .from(flashcards)
-    .where(eq(flashcards.id, id))
+    .where(and(eq(flashcards.id, id), eq(flashcards.userId, userId)))
     .limit(1);
 
   if (!card) {
-    return NextResponse.json(
-      { message: "Flashcard not found" },
-      { status: 404 },
-    );
+    return NextResponse.json({ message: "Flashcard not found" }, { status: 404 });
   }
 
   const [courseRow] = await getDb()
@@ -75,24 +69,21 @@ export async function GET(_request: Request, context: RouteContext) {
   return NextResponse.json(serializeCard(card, courseRow?.name ?? "Unknown"));
 }
 
-// ---------------------------------------------------------------------------
-// PUT /api/flashcards/[id]
-// ---------------------------------------------------------------------------
-
 export async function PUT(request: Request, context: RouteContext) {
+  const auth = await getServerUserId();
+  if (auth.error) return auth.error;
+  const { userId } = auth;
+
   const { id } = await context.params;
 
   const [existing] = await getDb()
     .select()
     .from(flashcards)
-    .where(eq(flashcards.id, id))
+    .where(and(eq(flashcards.id, id), eq(flashcards.userId, userId)))
     .limit(1);
 
   if (!existing) {
-    return NextResponse.json(
-      { message: "Flashcard not found" },
-      { status: 404 },
-    );
+    return NextResponse.json({ message: "Flashcard not found" }, { status: 404 });
   }
 
   const body = await request.json();
@@ -107,10 +98,7 @@ export async function PUT(request: Request, context: RouteContext) {
   }> = {};
 
   if (body.question !== undefined) {
-    if (
-      typeof body.question !== "string" ||
-      (body.question as string).trim() === ""
-    ) {
+    if (typeof body.question !== "string" || (body.question as string).trim() === "") {
       return NextResponse.json(
         { message: "question must be a non-empty string" },
         { status: 400 },
@@ -120,10 +108,7 @@ export async function PUT(request: Request, context: RouteContext) {
   }
 
   if (body.answer !== undefined) {
-    if (
-      typeof body.answer !== "string" ||
-      (body.answer as string).trim() === ""
-    ) {
+    if (typeof body.answer !== "string" || (body.answer as string).trim() === "") {
       return NextResponse.json(
         { message: "answer must be a non-empty string" },
         { status: 400 },
@@ -132,17 +117,9 @@ export async function PUT(request: Request, context: RouteContext) {
     updates.answer = (body.answer as string).trim();
   }
 
-  if (body.easeFactor !== undefined) {
-    updates.easeFactor = body.easeFactor as number;
-  }
-
-  if (body.interval !== undefined) {
-    updates.interval = body.interval as number;
-  }
-
-  if (body.repetition !== undefined) {
-    updates.repetition = body.repetition as number;
-  }
+  if (body.easeFactor !== undefined) updates.easeFactor = body.easeFactor as number;
+  if (body.interval !== undefined) updates.interval = body.interval as number;
+  if (body.repetition !== undefined) updates.repetition = body.repetition as number;
 
   if (body.nextReviewDate !== undefined) {
     const parsed = new Date(body.nextReviewDate as string);
@@ -155,7 +132,6 @@ export async function PUT(request: Request, context: RouteContext) {
     updates.nextReviewDate = parsed;
   }
 
-  // Resolve the course name (use existing courseId — courseId is not updatable here)
   const [courseRow] = await getDb()
     .select({ name: courses.name })
     .from(courses)
@@ -163,51 +139,42 @@ export async function PUT(request: Request, context: RouteContext) {
     .limit(1);
 
   if (Object.keys(updates).length === 0) {
-    return NextResponse.json(
-      serializeCard(existing, courseRow?.name ?? "Unknown"),
-    );
+    return NextResponse.json(serializeCard(existing, courseRow?.name ?? "Unknown"));
   }
 
   const [updated] = await getDb()
     .update(flashcards)
     .set(updates)
-    .where(eq(flashcards.id, id))
+    .where(and(eq(flashcards.id, id), eq(flashcards.userId, userId)))
     .returning();
 
   if (!updated) {
-    return NextResponse.json(
-      { message: "Failed to update flashcard" },
-      { status: 500 },
-    );
+    return NextResponse.json({ message: "Failed to update flashcard" }, { status: 500 });
   }
 
-  return NextResponse.json(
-    serializeCard(updated, courseRow?.name ?? "Unknown"),
-  );
+  return NextResponse.json(serializeCard(updated, courseRow?.name ?? "Unknown"));
 }
 
-// ---------------------------------------------------------------------------
-// DELETE /api/flashcards/[id]
-// ---------------------------------------------------------------------------
-
 export async function DELETE(_request: Request, context: RouteContext) {
+  const auth = await getServerUserId();
+  if (auth.error) return auth.error;
+  const { userId } = auth;
+
   const { id } = await context.params;
 
   const [existing] = await getDb()
     .select({ id: flashcards.id })
     .from(flashcards)
-    .where(eq(flashcards.id, id))
+    .where(and(eq(flashcards.id, id), eq(flashcards.userId, userId)))
     .limit(1);
 
   if (!existing) {
-    return NextResponse.json(
-      { message: "Flashcard not found" },
-      { status: 404 },
-    );
+    return NextResponse.json({ message: "Flashcard not found" }, { status: 404 });
   }
 
-  // CASCADE on the FK handles review_history rows automatically
-  await getDb().delete(flashcards).where(eq(flashcards.id, id));
+  await getDb()
+    .delete(flashcards)
+    .where(and(eq(flashcards.id, id), eq(flashcards.userId, userId)));
 
   return new NextResponse(null, { status: 204 });
 }

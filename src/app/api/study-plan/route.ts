@@ -6,6 +6,8 @@ export const dynamic = "force-dynamic";
 
 import { NextResponse } from "next/server";
 import { getDb, courses } from "@/db";
+import { eq } from "drizzle-orm";
+import { getServerUserId } from "@/lib/getServerUserId";
 
 function buildStudyPlan(
   courseList: { id: string; name: string; examDate: Date; difficultyWeight: number }[],
@@ -38,7 +40,15 @@ function buildStudyPlan(
 }
 
 export async function GET() {
-  const courseList = await getDb().select().from(courses);
+  const auth = await getServerUserId();
+  if (auth.error) return auth.error;
+  const { userId } = auth;
+
+  const courseList = await getDb()
+    .select()
+    .from(courses)
+    .where(eq(courses.userId, userId));
+
   const plan = buildStudyPlan(courseList, 8);
   return NextResponse.json(plan);
 }
